@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
+import CategoryFilter from "./CategoryFilter";
+import CartSummary from "./CartSummary";
+import { useCart } from "./CartContext";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 // Set base URL to avoid CORS/mixed issues
 axios.defaults.baseURL = "http://localhost:5071";
@@ -18,10 +22,18 @@ interface Book {
 }
 
 const BookList = () => {
+    const [searchParams] = useSearchParams();
     const [books, setBooks] = useState<Book[]>([]);
-    const [page, setPage] = useState(1);
+    const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
     const [pageSize, setPageSize] = useState(5);
     const [total, setTotal] = useState(0);
+    const [categories, setCategories] = useState<string[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState(
+        searchParams.get("category") || ""
+    );
+
+    const { addToCart } = useCart();
+    const navigate = useNavigate();
 
     const fetchBooks = async () => {
         try {
@@ -30,10 +42,10 @@ const BookList = () => {
                     page,
                     pageSize,
                     sort: "title",
+                    category: selectedCategory || undefined,
                 },
             });
-            console.log("API Response:", res.data); // Debug log
-            setBooks(res.data.books); // 👈 match lowercase from backend
+            setBooks(res.data.books);
             setTotal(res.data.total);
         } catch (error) {
             console.error("Error fetching books:", error);
@@ -42,11 +54,28 @@ const BookList = () => {
 
     useEffect(() => {
         fetchBooks();
-    }, [page, pageSize]);
+    }, [page, pageSize, selectedCategory]);
+
+    useEffect(() => {
+        axios.get("/api/books/categories").then((res) => {
+            setCategories(res.data);
+        });
+    }, []);
 
     return (
         <div className="container mt-4">
+            <CartSummary />
+
             <h2 className="mb-3">📚 Book List</h2>
+
+            <CategoryFilter
+                categories={categories}
+                selectedCategory={selectedCategory}
+                onCategoryChange={(cat) => {
+                    setSelectedCategory(cat);
+                    setPage(1);
+                }}
+            />
 
             <div className="mb-3">
                 <label className="me-2">Books per page:</label>
@@ -76,12 +105,13 @@ const BookList = () => {
                         <th>Category</th>
                         <th>Pages</th>
                         <th>Price</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {books.length === 0 ? (
                         <tr>
-                            <td colSpan={8} className="text-center">
+                            <td colSpan={9} className="text-center">
                                 No books found.
                             </td>
                         </tr>
@@ -96,6 +126,26 @@ const BookList = () => {
                                 <td>{book.category}</td>
                                 <td>{book.pageCount}</td>
                                 <td>${book.price.toFixed(2)}</td>
+                                <td>
+                                    <button
+                                        className="btn btn-sm btn-success"
+                                        onClick={() => {
+                                            sessionStorage.setItem(
+                                                "lastPageInfo",
+                                                JSON.stringify({ page, category: selectedCategory })
+                                            );
+
+                                            addToCart({
+                                                bookId: book.bookId,
+                                                title: book.title,
+                                                price: book.price,
+                                                quantity: 1,
+                                            });
+                                        }}
+                                    >
+                                        Add to Cart
+                                    </button>
+                                </td>
                             </tr>
                         ))
                     )}

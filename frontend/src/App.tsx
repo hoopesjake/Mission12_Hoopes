@@ -1,12 +1,16 @@
 import React from "react";
-import "./App.css";
-import BookList from "./BookList.tsx";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import BookList from "./BookList";
+import Cart from "./Cart";
 
 function App() {
   return (
-    <div className="App">
-      <BookList />
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<BookList />} />
+        <Route path="/cart" element={<Cart />} />
+      </Routes>
+    </Router>
   );
 }
 
